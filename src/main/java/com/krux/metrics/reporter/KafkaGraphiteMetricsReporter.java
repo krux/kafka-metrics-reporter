@@ -77,6 +77,7 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
             }
             try {
                 reporter = new GraphiteReporter(Metrics.defaultRegistry(), graphiteHost, graphitePort, graphiteGroupPrefix/*
+                                                                                                                           * 
                                                                                                                            * ,
                                                                                                                            * predicate
                                                                                                                            */
