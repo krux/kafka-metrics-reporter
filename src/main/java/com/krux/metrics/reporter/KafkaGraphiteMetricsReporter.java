@@ -11,7 +11,6 @@ import org.apache.log4j.Logger;
 
 import com.yammer.metrics.Metrics;
 import com.yammer.metrics.core.MetricPredicate;
-import com.yammer.metrics.reporting.GraphiteReporter;
 
 public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, KafkaGraphiteMetricsReporterMBean {
 
