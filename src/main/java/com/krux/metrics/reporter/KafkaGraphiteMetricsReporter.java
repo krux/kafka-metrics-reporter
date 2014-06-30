@@ -1,6 +1,8 @@
 package com.krux.metrics.reporter;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.concurrent.TimeUnit;
 
 import kafka.metrics.KafkaMetricsConfig;
@@ -18,6 +20,7 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
     static String GRAPHITE_DEFAULT_HOST = "localhost";
     static int GRAPHITE_DEFAULT_PORT = 2003;
     static String GRAPHITE_DEFAULT_PREFIX = "kafka";
+    static String GRAPHITE_DEFAULT_SUFFIX = "";
 
     boolean initialized = false;
     boolean running = false;
@@ -25,6 +28,7 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
     String graphiteHost = GRAPHITE_DEFAULT_HOST;
     int graphitePort = GRAPHITE_DEFAULT_PORT;
     String graphiteGroupPrefix = GRAPHITE_DEFAULT_PREFIX;
+    String graphiteSuffix = GRAPHITE_DEFAULT_SUFFIX;
     MetricPredicate predicate = MetricPredicate.ALL;
 
     @Override
@@ -49,7 +53,7 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
             running = false;
             LOG.info("Stopped Kafka Graphite metrics reporter");
             try {
-                reporter = new GraphiteReporter(Metrics.defaultRegistry(), graphiteHost, graphitePort, graphiteGroupPrefix/*
+                reporter = new GraphiteReporter(Metrics.defaultRegistry(), graphiteHost, graphitePort, graphiteGroupPrefix, graphiteSuffix /*
                                                                                                                            * ,
                                                                                                                            * predicate
                                                                                                                            */
@@ -67,6 +71,11 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
             graphiteHost = props.getString("kafka.graphite.metrics.host", GRAPHITE_DEFAULT_HOST);
             graphitePort = props.getInt("kafka.graphite.metrics.port", GRAPHITE_DEFAULT_PORT);
             graphiteGroupPrefix = props.getString("kafka.graphite.metrics.group", GRAPHITE_DEFAULT_PREFIX);
+            try {
+                graphiteSuffix = InetAddress.getLocalHost().getHostName().toLowerCase();
+            } catch (UnknownHostException e1) {
+                LOG.error( e1 );
+            }
             String regex = props.getString("kafka.graphite.metrics.exclude.regex", null);
 
             LOG.info("Initialize GraphiteReporter [" + graphiteHost + "," + graphitePort + "," + graphiteGroupPrefix + "]");
@@ -75,7 +84,7 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
                 predicate = new RegexMetricPredicate(regex);
             }
             try {
-                reporter = new GraphiteReporter(Metrics.defaultRegistry(), graphiteHost, graphitePort, graphiteGroupPrefix/*
+                reporter = new GraphiteReporter(Metrics.defaultRegistry(), graphiteHost, graphitePort, graphiteGroupPrefix, graphiteSuffix/*
                                                                                                                            * 
                                                                                                                            * ,
                                                                                                                            * predicate
