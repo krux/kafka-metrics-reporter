@@ -305,7 +305,9 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             sb.append(name.getScope())
               .append('.');
         }
-        return sb.append(name.getName()).toString();
+        sb.append(name.getName());
+        sb.append(suffix);
+        return sb.toString();
     }
     
     protected String sanitizeString(String s) {
