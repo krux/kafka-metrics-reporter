@@ -73,6 +73,10 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
             graphiteGroupPrefix = props.getString("kafka.graphite.metrics.env", GRAPHITE_DEFAULT_PREFIX);
             try {
                 graphiteSuffix = InetAddress.getLocalHost().getHostName().toLowerCase();
+                if ( graphiteSuffix.contains( ".") ) {
+                    String[] parts = graphiteSuffix.split( "\\." );
+                    graphiteSuffix = parts[0];
+                }
             } catch (UnknownHostException e1) {
                 LOG.error( e1 );
             }
