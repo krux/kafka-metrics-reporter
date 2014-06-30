@@ -70,7 +70,7 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
             KafkaMetricsConfig metricsConfig = new KafkaMetricsConfig(props);
             graphiteHost = props.getString("kafka.graphite.metrics.host", GRAPHITE_DEFAULT_HOST);
             graphitePort = props.getInt("kafka.graphite.metrics.port", GRAPHITE_DEFAULT_PORT);
-            graphiteGroupPrefix = props.getString("kafka.graphite.metrics.group", GRAPHITE_DEFAULT_PREFIX);
+            graphiteGroupPrefix = props.getString("kafka.graphite.metrics.env", GRAPHITE_DEFAULT_PREFIX);
             try {
                 graphiteSuffix = InetAddress.getLocalHost().getHostName().toLowerCase();
             } catch (UnknownHostException e1) {
