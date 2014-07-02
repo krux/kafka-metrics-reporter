@@ -30,6 +30,7 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
     String graphiteGroupPrefix = GRAPHITE_DEFAULT_PREFIX;
     String graphiteSuffix = GRAPHITE_DEFAULT_SUFFIX;
     MetricPredicate predicate = MetricPredicate.ALL;
+    boolean logDebugToStdOut = false;
 
     @Override
     public String getMBeanName() {
@@ -71,6 +72,7 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
             graphiteHost = props.getString("kafka.graphite.metrics.host", GRAPHITE_DEFAULT_HOST);
             graphitePort = props.getInt("kafka.graphite.metrics.port", GRAPHITE_DEFAULT_PORT);
             graphiteGroupPrefix = props.getString("kafka.graphite.metrics.env", GRAPHITE_DEFAULT_PREFIX);
+            System.setProperty("kafka.graphite.metrics.log.debug", props.getString("kafka.graphite.metrics.log.debug", "false"));
             try {
                 graphiteSuffix = InetAddress.getLocalHost().getHostName().toLowerCase();
                 if ( graphiteSuffix.contains( ".") ) {
@@ -88,7 +90,8 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
                 predicate = new RegexMetricPredicate(regex);
             }
             try {
-                reporter = new GraphiteReporter(Metrics.defaultRegistry(), graphiteHost, graphitePort, graphiteGroupPrefix, graphiteSuffix/*
+                reporter = new GraphiteReporter(Metrics.defaultRegistry(), graphiteHost, graphitePort, graphiteGroupPrefix, 
+                        graphiteSuffix/*
                                                                                                                            * 
                                                                                                                            * ,
                                                                                                                            * predicate

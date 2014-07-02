@@ -146,6 +146,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
              MetricPredicate.ALL,
              new DefaultSocketProvider(host, port),
              Clock.defaultClock());
+        LOG.info( "Instantiated " + this.getClass().getCanonicalName() );
     }
 
     /**
@@ -216,26 +217,38 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
     public void run() {
         Socket socket = null;
         try {
+            
             socket = this.socketProvider.get();
             writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-
+            boolean logDebugToStdOut = Boolean.parseBoolean(System.getProperty("kafka.graphite.metrics.log.debug", "false"));
+            if ( logDebugToStdOut ) {
+                System.out.println( "Sending stats to " + socket.getInetAddress() + ":" + socket.getPort() );
+            }
+            
             final long epoch = clock.time() / 1000;
             if (this.printVMMetrics) {
                 printVmMetrics(epoch);
             }
             printRegularMetrics(epoch);
             writer.flush();
+            //LOG.info( "Sent stats to graphite" );
         } catch (Exception e) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Error writing to Graphite", e);
+                e.printStackTrace( System.err );
+                e.printStackTrace( System.out );
             } else {
                 LOG.warn("Error writing to Graphite: {}", e.getMessage());
+                e.printStackTrace( System.err );
+                e.printStackTrace( System.out );
             }
             if (writer != null) {
                 try {
                     writer.flush();
                 } catch (IOException e1) {
                     LOG.error("Error while flushing writer:", e1);
+                    e.printStackTrace( System.err );
+                    e.printStackTrace( System.out );
                 }
             }
         } finally {
@@ -290,8 +303,25 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             writer.write(Long.toString(timestamp));
             writer.write('\n');
             writer.flush();
+            
+            boolean logDebugToStdOut = Boolean.parseBoolean(System.getProperty("kafka.graphite.metrics.log.debug", "false"));
+            if ( logDebugToStdOut ) {
+                StringBuilder sb = new StringBuilder();
+                if (!prefix.isEmpty()) {
+                    sb.append( prefix );
+                }
+                sb.append( sanitizeString(name) );
+                sb.append( '.' );
+                sb.append( value );
+                sb.append( ' ' );
+                sb.append( Long.toString(timestamp) );
+                System.out.println( sb.toString() );
+            }
+
         } catch (IOException e) {
             LOG.error("Error sending to Graphite:", e);
+            e.printStackTrace( System.err );
+            e.printStackTrace( System.out );
         }
     }
 
