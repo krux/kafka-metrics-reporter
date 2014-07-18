@@ -199,9 +199,9 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
 
         if (prefix != null) {
             // Pre-append the "." so that we don't need to make anything conditional later.
-            this.prefix = prefix + ".";
+            this.prefix = "ymetrics2." + prefix + ".";
         } else {
-            this.prefix = "";
+            this.prefix = "ymetrics2.";
         }
         
         if (suffix != null) {
@@ -298,7 +298,13 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             }
             writer.write(sanitizeString(name));
             writer.write('.');
-            writer.write(value);
+            String[] parts = value.split(" ");
+            writer.write(parts[0]);
+            if (!suffix.isEmpty()) {
+                writer.write(suffix);
+            }
+            writer.write(' ');
+            writer.write(parts[1]);
             writer.write(' ');
             writer.write(Long.toString(timestamp));
             writer.write('\n');
@@ -336,7 +342,6 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
               .append('.');
         }
         sb.append(name.getName());
-        sb.append(suffix);
         return sb.toString();
     }
     
