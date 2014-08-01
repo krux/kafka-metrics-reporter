@@ -36,7 +36,9 @@ import com.yammer.metrics.stats.Snapshot;
 
 public class StatsdReporter extends AbstractPollingReporter implements MetricProcessor<Long> {
 
-    public static enum StatType { COUNTER, TIMER, GAUGE }
+    public static enum StatType {
+        COUNTER, TIMER, GAUGE
+    }
 
     private static final Logger log = LoggerFactory.getLogger(StatsdReporter.class);
 
@@ -54,6 +56,7 @@ public class StatsdReporter extends AbstractPollingReporter implements MetricPro
 
     public interface UDPSocketProvider {
         DatagramSocket get() throws Exception;
+
         DatagramPacket newPacket(ByteArrayOutputStream out);
     }
 
@@ -70,22 +73,21 @@ public class StatsdReporter extends AbstractPollingReporter implements MetricPro
     }
 
     public StatsdReporter(MetricsRegistry metricsRegistry, String host, int port, String prefix) throws IOException {
-        this(metricsRegistry,
-             prefix,
-             MetricPredicate.ALL,
-             new DefaultSocketProvider(host, port),
-             Clock.defaultClock());
+        this(metricsRegistry, prefix, MetricPredicate.ALL, new DefaultSocketProvider(host, port), Clock.defaultClock());
     }
 
-    public StatsdReporter(MetricsRegistry metricsRegistry, String prefix, MetricPredicate predicate, UDPSocketProvider socketProvider, Clock clock) throws IOException {
+    public StatsdReporter(MetricsRegistry metricsRegistry, String prefix, MetricPredicate predicate,
+            UDPSocketProvider socketProvider, Clock clock) throws IOException {
         this(metricsRegistry, prefix, predicate, socketProvider, clock, VirtualMachineMetrics.getInstance());
     }
 
-    public StatsdReporter(MetricsRegistry metricsRegistry, String prefix, MetricPredicate predicate, UDPSocketProvider socketProvider, Clock clock, VirtualMachineMetrics vm) throws IOException {
+    public StatsdReporter(MetricsRegistry metricsRegistry, String prefix, MetricPredicate predicate,
+            UDPSocketProvider socketProvider, Clock clock, VirtualMachineMetrics vm) throws IOException {
         this(metricsRegistry, prefix, predicate, socketProvider, clock, vm, "graphite-reporter");
     }
 
-    public StatsdReporter(MetricsRegistry metricsRegistry, String prefix, MetricPredicate predicate, UDPSocketProvider socketProvider, Clock clock, VirtualMachineMetrics vm, String name) throws IOException {
+    public StatsdReporter(MetricsRegistry metricsRegistry, String prefix, MetricPredicate predicate,
+            UDPSocketProvider socketProvider, Clock clock, VirtualMachineMetrics vm, String name) throws IOException {
         super(metricsRegistry, name);
 
         this.socketProvider = socketProvider;
@@ -94,7 +96,8 @@ public class StatsdReporter extends AbstractPollingReporter implements MetricPro
         this.clock = clock;
 
         if (prefix != null) {
-            // Pre-append the "." so that we don't need to make anything conditional later.
+            // Pre-append the "." so that we don't need to make anything
+            // conditional later.
             this.prefix = prefix + ".";
         } else {
             this.prefix = "";
@@ -115,8 +118,8 @@ public class StatsdReporter extends AbstractPollingReporter implements MetricPro
     public void run() {
         DatagramSocket socket = null;
         try {
-            
-            log.info( "*******I AM HERE!!" );
+
+            log.info("*******I AM HERE!!");
             socket = this.socketProvider.get();
             outputData.reset();
             prependNewline = false;
@@ -130,9 +133,9 @@ public class StatsdReporter extends AbstractPollingReporter implements MetricPro
 
             // Send UDP data
             writer.flush();
-            
+
             DatagramPacket packet = this.socketProvider.newPacket(outputData);
-            log.info( "Trying to send something!!" );
+            log.info("Trying to send something!!");
             packet.setData(outputData.toByteArray());
             socket.send(packet);
         } catch (Exception e) {
@@ -204,12 +207,13 @@ public class StatsdReporter extends AbstractPollingReporter implements MetricPro
     }
 
     protected void printRegularMetrics(long epoch) {
-        for (Map.Entry<String,SortedMap<MetricName,Metric>> entry : getMetricsRegistry().groupedMetrics(predicate).entrySet()) {
+        for (Map.Entry<String, SortedMap<MetricName, Metric>> entry : getMetricsRegistry().groupedMetrics(predicate)
+                .entrySet()) {
             for (Map.Entry<MetricName, Metric> subEntry : entry.getValue().entrySet()) {
                 final Metric metric = subEntry.getValue();
                 if (metric != null) {
                     try {
-                        log.info("Trying to process " + entry.getKey() );
+                        log.info("Trying to process " + entry.getKey());
                         metric.processWith(this, subEntry.getKey(), epoch);
                     } catch (Exception ignored) {
                         log.error("Error printing regular metrics:", ignored);
@@ -271,7 +275,6 @@ public class StatsdReporter extends AbstractPollingReporter implements MetricPro
         sendFloat(sanitizedName + ".999percentile", StatType.TIMER, snapshot.get999thPercentile());
     }
 
-
     protected void sendInt(String name, StatType statType, long value) {
         sendData(name, String.format(locale, "%d", value), statType);
     }
@@ -285,14 +288,9 @@ public class StatsdReporter extends AbstractPollingReporter implements MetricPro
     }
 
     protected String sanitizeName(MetricName name) {
-        final StringBuilder sb = new StringBuilder()
-                .append(name.getGroup())
-                .append('.')
-                .append(name.getType())
-                .append('.');
+        final StringBuilder sb = new StringBuilder().append(name.getGroup()).append('.').append(name.getType()).append('.');
         if (name.hasScope()) {
-            sb.append(name.getScope())
-                    .append('.');
+            sb.append(name.getScope()).append('.');
         }
         return sb.append(name.getName()).toString();
     }
@@ -302,18 +300,18 @@ public class StatsdReporter extends AbstractPollingReporter implements MetricPro
     }
 
     protected void sendData(String name, String value, StatType statType) {
-        log.info( "Sending: " + name + ", " + value );
+        log.info("Sending: " + name + ", " + value);
         String statTypeStr = "";
         switch (statType) {
-            case COUNTER:
-                statTypeStr = "c";
-                break;
-            case GAUGE:
-                statTypeStr = "g";
-                break;
-            case TIMER:
-                statTypeStr = "ms";
-                break;
+        case COUNTER:
+            statTypeStr = "c";
+            break;
+        case GAUGE:
+            statTypeStr = "g";
+            break;
+        case TIMER:
+            statTypeStr = "ms";
+            break;
         }
 
         try {
@@ -343,7 +341,7 @@ public class StatsdReporter extends AbstractPollingReporter implements MetricPro
         public DefaultSocketProvider(String host, int port) {
             this.host = host;
             this.port = port;
-            log.info( "Created DefaultSocketProvider" );
+            log.info("Created DefaultSocketProvider");
         }
 
         @Override
@@ -357,15 +355,14 @@ public class StatsdReporter extends AbstractPollingReporter implements MetricPro
 
             if (out != null) {
                 dataBuffer = out.toByteArray();
-            }
-            else {
+            } else {
                 dataBuffer = new byte[8192];
             }
 
             try {
                 return new DatagramPacket(dataBuffer, dataBuffer.length, InetAddress.getByName(this.host), this.port);
             } catch (Exception e) {
-                log.error( "error tryng to create packet" );
+                log.error("error tryng to create packet");
                 return null;
             }
         }

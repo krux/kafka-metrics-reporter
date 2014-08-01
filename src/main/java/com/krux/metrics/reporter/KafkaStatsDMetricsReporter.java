@@ -37,8 +37,8 @@ public class KafkaStatsDMetricsReporter implements KafkaMetricsReporter, KafkaSt
         if (initialized && !running) {
             reporter.start(pollingPeriodSecs, TimeUnit.SECONDS);
             running = true;
-            log.info(String.format("Started Kafka Statsd metrics reporter with polling period %d seconds",
-                    pollingPeriodSecs));
+            log.info(String
+                    .format("Started Kafka Statsd metrics reporter with polling period %d seconds", pollingPeriodSecs));
         }
     }
 
@@ -49,8 +49,8 @@ public class KafkaStatsDMetricsReporter implements KafkaMetricsReporter, KafkaSt
             running = false;
             log.info("Stopped Kafka Statsd metrics reporter");
             try {
-                
-                reporter = new StatsdReporter( Metrics.defaultRegistry(), _statsdHost, _statsdPort, _statsdGroupPrefix );
+
+                reporter = new StatsdReporter(Metrics.defaultRegistry(), _statsdHost, _statsdPort, _statsdGroupPrefix);
 
             } catch (IOException e) {
                 log.error("Unable to initialize StatsdReporter", e);
@@ -73,7 +73,7 @@ public class KafkaStatsDMetricsReporter implements KafkaMetricsReporter, KafkaSt
                 predicate = new RegexMetricPredicate(regex);
             }
             try {
-                reporter = new StatsdReporter( Metrics.defaultRegistry(), _statsdHost, _statsdPort, _statsdGroupPrefix );
+                reporter = new StatsdReporter(Metrics.defaultRegistry(), _statsdHost, _statsdPort, _statsdGroupPrefix);
 
             } catch (IOException e) {
                 log.error("Unable to initialize StatsdReporter", e);
@@ -81,7 +81,7 @@ public class KafkaStatsDMetricsReporter implements KafkaMetricsReporter, KafkaSt
             if (props.getBoolean("kafka.statsd.metrics.reporter.enabled", false)) {
                 initialized = true;
                 startReporter(metricsConfig.pollingIntervalSecs());
-                log.info("StatsdReporter started. Polling interval: " + metricsConfig.pollingIntervalSecs() );
+                log.info("StatsdReporter started. Polling interval: " + metricsConfig.pollingIntervalSecs());
             }
         }
     }

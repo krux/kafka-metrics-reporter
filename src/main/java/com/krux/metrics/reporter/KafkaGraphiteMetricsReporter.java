@@ -54,10 +54,10 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
             running = false;
             LOG.info("Stopped Kafka Graphite metrics reporter");
             try {
-                reporter = new GraphiteReporter(Metrics.defaultRegistry(), graphiteHost, graphitePort, graphiteGroupPrefix, graphiteSuffix /*
-                                                                                                                           * ,
-                                                                                                                           * predicate
-                                                                                                                           */
+                reporter = new GraphiteReporter(Metrics.defaultRegistry(), graphiteHost, graphitePort, graphiteGroupPrefix,
+                        graphiteSuffix /*
+                                        * , predicate
+                                        */
                 );
             } catch (IOException e) {
                 LOG.error("Unable to initialize GraphiteReporter", e);
@@ -72,15 +72,18 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
             graphiteHost = props.getString("kafka.graphite.metrics.host", GRAPHITE_DEFAULT_HOST);
             graphitePort = props.getInt("kafka.graphite.metrics.port", GRAPHITE_DEFAULT_PORT);
             graphiteGroupPrefix = props.getString("kafka.graphite.metrics.env", GRAPHITE_DEFAULT_PREFIX);
-            System.setProperty("kafka.graphite.metrics.log.debug", props.getString("kafka.graphite.metrics.log.debug", "false"));
+            System.setProperty("kafka.graphite.metrics.log.debug",
+                    props.getString("kafka.graphite.metrics.log.debug", "false"));
+            System.setProperty("zookeeper.connect", props.getString("zookeeper.connect", "localhost:2181"));
+            System.setProperty("krux.kafka.status.reporter.http.port", props.getString("krux.kafka.status.reporter.http.port", "6090" ) );
             try {
                 graphiteSuffix = InetAddress.getLocalHost().getHostName().toLowerCase();
-                if ( graphiteSuffix.contains( ".") ) {
-                    String[] parts = graphiteSuffix.split( "\\." );
+                if (graphiteSuffix.contains(".")) {
+                    String[] parts = graphiteSuffix.split("\\.");
                     graphiteSuffix = parts[0];
                 }
             } catch (UnknownHostException e1) {
-                LOG.error( e1 );
+                LOG.error(e1);
             }
             String regex = props.getString("kafka.graphite.metrics.exclude.regex", null);
 
@@ -90,12 +93,11 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
                 predicate = new RegexMetricPredicate(regex);
             }
             try {
-                reporter = new GraphiteReporter(Metrics.defaultRegistry(), graphiteHost, graphitePort, graphiteGroupPrefix, 
+                reporter = new GraphiteReporter(Metrics.defaultRegistry(), graphiteHost, graphitePort, graphiteGroupPrefix,
                         graphiteSuffix/*
-                                                                                                                           * 
-                                                                                                                           * ,
-                                                                                                                           * predicate
-                                                                                                                           */
+                                       * 
+                                       * , predicate
+                                       */
                 );
             } catch (IOException e) {
                 LOG.error("Unable to initialize GraphiteReporter", e);
@@ -105,6 +107,9 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
                 startReporter(metricsConfig.pollingIntervalSecs());
                 LOG.debug("GraphiteReporter started.");
             }
+
+            // startup http __status listener
+
         }
     }
 }
