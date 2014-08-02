@@ -76,9 +76,9 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
         _client = CuratorFrameworkFactory.newClient(zkConnect, retryPolicy);
         _client.start();
         
-        Integer port = Integer.parseInt( System.getProperty( "krux.kafka.status.reporter.http.port" ) );
-        Thread t = new Thread( new HttpServer( port ) );
-        t.start();
+//        Integer port = Integer.parseInt( System.getProperty( "krux.kafka.status.reporter.http.port" ) );
+//        Thread t = new Thread( new HttpServer( port ) );
+//        t.start();
     }
 
     /**
