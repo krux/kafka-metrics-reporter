@@ -69,16 +69,16 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
     static private CuratorFramework _client;
     
     static {
-        RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 5);
-        String zkConnect = System.getProperty("zookeeper.connect");
-        //LOG.info("zkConnect: " + zkConnect);
-        System.out.println("zkConnect: " + zkConnect);
-        _client = CuratorFrameworkFactory.newClient(zkConnect, retryPolicy);
-        _client.start();
+//        RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 5);
+//        String zkConnect = System.getProperty("zookeeper.connect");
+//        //LOG.info("zkConnect: " + zkConnect);
+//        System.out.println("zkConnect: " + zkConnect);
+//        _client = CuratorFrameworkFactory.newClient(zkConnect, retryPolicy);
+//        _client.start();
         
-//        Integer port = Integer.parseInt( System.getProperty( "krux.kafka.status.reporter.http.port" ) );
-//        Thread t = new Thread( new HttpServer( port ) );
-//        t.start();
+        Integer port = Integer.parseInt( System.getProperty( "krux.kafka.status.reporter.http.port" ) );
+        Thread t = new Thread( new HttpServer( port ) );
+        t.start();
     }
 
     /**
@@ -331,7 +331,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             }
             printRegularMetrics(epoch);
 
-            printConsumerLagMetrics(epoch);
+            //printConsumerLagMetrics(epoch);
 
             writer.flush();
             // LOG.info( "Sent stats to graphite" );
