@@ -612,7 +612,6 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
         public DefaultSocketProvider(String host, int port) {
             this.host = host;
             this.port = port;
-
         }
 
         @Override
