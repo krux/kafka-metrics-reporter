@@ -75,7 +75,7 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
             System.setProperty("kafka.graphite.metrics.log.debug",
                     props.getString("kafka.graphite.metrics.log.debug", "false"));
             System.setProperty("zookeeper.connect", props.getString("zookeeper.connect", "localhost:2181"));
-            System.setProperty("krux.kafka.status.reporter.http.port", props.getString("krux.kafka.status.reporter.http.port", "6090" ) );
+            System.setProperty("kafka.http.status.port", props.getString("kafka.http.status.port", "6091" ) );
             try {
                 graphiteSuffix = InetAddress.getLocalHost().getHostName().toLowerCase();
                 if (graphiteSuffix.contains(".")) {

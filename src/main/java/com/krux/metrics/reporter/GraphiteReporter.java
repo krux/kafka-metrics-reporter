@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.lang.Thread.State;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.List;
@@ -67,18 +68,34 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
     public boolean printVMMetrics = true;
     
     static private CuratorFramework _client;
+    static String dc;
+    static boolean IS_LEADER;
     
     static {
-//        RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 5);
-//        String zkConnect = System.getProperty("zookeeper.connect");
-//        //LOG.info("zkConnect: " + zkConnect);
-//        System.out.println("zkConnect: " + zkConnect);
-//        _client = CuratorFrameworkFactory.newClient(zkConnect, retryPolicy);
-//        _client.start();
         
-        Integer port = Integer.parseInt( System.getProperty( "krux.kafka.status.reporter.http.port" ) );
-        Thread t = new Thread( new HttpServer( port ) );
-        t.start();
+        try {
+            if ( isLeader() ) {
+                RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 5);
+                String zkConnect = System.getProperty("zookeeper.connect");
+                //LOG.info("zkConnect: " + zkConnect);
+                System.out.println("zkConnect: " + zkConnect);
+                _client = CuratorFrameworkFactory.newClient(zkConnect, retryPolicy);
+                _client.start();
+                
+                Runtime.getRuntime().addShutdownHook( new Thread() {
+                    @Override
+                    public void run() {
+                        _client.close();
+                    }
+                });
+            }
+            
+            Integer port = Integer.parseInt( System.getProperty( "kafka.http.status.port" ) );
+            Thread t = new Thread( new HttpServer( port ) );
+            t.start();
+        } catch ( Exception e ) {
+            LOG.error( "Cannot start http server or lag reporter", e );
+        }
     }
 
     /**
@@ -331,7 +348,10 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             }
             printRegularMetrics(epoch);
 
-            //printConsumerLagMetrics(epoch);
+            // we only need one machine in a given cluster to report lag metrics
+            if ( IS_LEADER ) {
+                printConsumerLagMetrics(epoch);
+            }
 
             writer.flush();
             // LOG.info( "Sent stats to graphite" );
@@ -371,82 +391,101 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
         try {
 
             try {
-                List<String> children = _client.getChildren().forPath("/consumers");
+                List<String> consumerGroups = _client.getChildren().forPath("/consumers");
 
-                for (String child : children) {
-                    String fullTopicPath = "/consumers/" + child + "/offsets";
-                    List<String> childTopics = _client.getChildren().forPath(fullTopicPath);
-                    for (String topic : childTopics) {
-                        byte[] data = _client.getData().forPath("/brokers/topics/" + topic);
-                        if (data != null) {
-                            String dataStr = new String(data, "UTF8");
-                            // parse json into map
-                            Map<String, Object> partitionMap = JSON.std.mapFrom(dataStr);
-                            Map<String, Object> realPartitionMap = (Map<String, Object>) partitionMap.get("partitions");
-
-                            for (String pid : realPartitionMap.keySet()) {
-                                // get offset
-                                String offsetPath = "/consumers/" + child + "/offsets/" + topic + "/" + pid;
-                                byte[] offsetBytes = _client.getData().forPath(offsetPath);
-                                long offset = Long.parseLong(new String(offsetBytes, "UTF8"));
-
-                                String ownerPath = "/consumers/" + child + "/owners/" + topic + "/" + pid;
-                                String ownerStr;
-                                // this call will fail if there are no consumers
-                                // currently listening, so trap
-                                try {
-                                    byte[] ownerBytes = _client.getData().forPath(ownerPath);
-                                    ownerStr = new String(ownerBytes, "UTF8");
-                                } catch (Exception e) {
-                                    ownerStr = "none";
-                                }
-
-                                String leadersAndIsrPath = "/brokers/topics/" + topic + "/partitions/" + pid + "/state";
-                                byte[] topicPartitionAndIsrBytes = _client.getData().forPath(leadersAndIsrPath);
-                                String partionAndIsr;
-                                Integer leader;
-                                String consumerInfoStr;
-                                String consumerHost;
-                                Integer consumerPort;
-                                long lastOffset = 0;
-                                if (topicPartitionAndIsrBytes != null) {
-                                    partionAndIsr = new String(topicPartitionAndIsrBytes, "UTF8");
-                                    Map<String, Object> leaderIsrMap = JSON.std.mapFrom(partionAndIsr);
-                                    leader = (Integer) leaderIsrMap.get("leader");
-
-                                    String consumerPath = "/brokers/ids/" + leader;
-
-                                    byte[] consumerInfoBytes = _client.getData().forPath(consumerPath);
-
-                                    if (consumerInfoBytes != null) {
-                                        consumerInfoStr = new String(consumerInfoBytes, "UTF8");
-                                        Map<String, Object> consumerMap = JSON.std.mapFrom(consumerInfoStr);
-                                        consumerHost = (String) consumerMap.get("host");
-                                        consumerPort = (Integer) consumerMap.get("port");
-
-                                        SimpleConsumer sc = new SimpleConsumer(consumerHost, consumerPort, 10000, 100000,
-                                                "GraphiteReporterOffsetChecker");
-
-                                        lastOffset = getLastOffset(sc, topic, Integer.parseInt(pid),
-                                                OffsetRequest.LatestTime(), "GraphiteReporterOffsetChecker");
+                for (String consumerGroup : consumerGroups) {
+                    String fullTopicPath = "/consumers/" + consumerGroup + "/offsets";
+                    if ( !fullTopicPath.equals("/consumers/console-consumer-43523/offsets") )
+                    try {
+                        List<String> childTopics = _client.getChildren().forPath(fullTopicPath);
+                        for (String topic : childTopics) {
+                            byte[] data = _client.getData().forPath("/brokers/topics/" + topic);
+                            if (data != null) {
+                                String dataStr = new String(data, "UTF8");
+                                // parse json into map
+                                Map<String, Object> partitionMap = JSON.std.mapFrom(dataStr);
+                                Map<String, Object> realPartitionMap = (Map<String, Object>) partitionMap.get("partitions");
+    
+                                long totalLagPerTopic = 0;
+                                for (String pid : realPartitionMap.keySet()) {
+                                    // get offset
+                                    String offsetPath = "/consumers/" + consumerGroup + "/offsets/" + topic + "/" + pid;
+                                    byte[] offsetBytes = _client.getData().forPath(offsetPath);
+                                    long offset = Long.parseLong(new String(offsetBytes, "UTF8"));
+    
+                                    String ownerPath = "/consumers/" + consumerGroup + "/owners/" + topic + "/" + pid;
+                                    String ownerStr;
+                                    // this call will fail if there are no consumers
+                                    // currently listening, so trap
+                                    try {
+                                        byte[] ownerBytes = _client.getData().forPath(ownerPath);
+                                        ownerStr = new String(ownerBytes, "UTF8");
+                                    } catch (Exception e) {
+                                        ownerStr = "none";
                                     }
-                                }
-                                if (!ownerStr.equals("none")) {
-                                    sendInt(epoch, "kafka.consumer.lag." + child + "." + ownerStr.replace(".", "-"), "lag",
-                                            (lastOffset - offset));
+    
+                                    String leadersAndIsrPath = "/brokers/topics/" + topic + "/partitions/" + pid + "/state";
+                                    byte[] topicPartitionAndIsrBytes = _client.getData().forPath(leadersAndIsrPath);
+                                    String partionAndIsr;
+                                    Integer leader;
+                                    String consumerInfoStr;
+                                    String consumerHost;
+                                    Integer consumerPort;
+                                    long lastOffset = 0;
+                                    if (topicPartitionAndIsrBytes != null) {
+                                        partionAndIsr = new String(topicPartitionAndIsrBytes, "UTF8");
+                                        Map<String, Object> leaderIsrMap = JSON.std.mapFrom(partionAndIsr);
+                                        leader = (Integer) leaderIsrMap.get("leader");
+    
+                                        String consumerPath = "/brokers/ids/" + leader;
+    
+                                        byte[] consumerInfoBytes = _client.getData().forPath(consumerPath);
+    
+                                        if (consumerInfoBytes != null) {
+                                            consumerInfoStr = new String(consumerInfoBytes, "UTF8");
+                                            Map<String, Object> consumerMap = JSON.std.mapFrom(consumerInfoStr);
+                                            consumerHost = (String) consumerMap.get("host");
+                                            consumerPort = (Integer) consumerMap.get("port");
+    
+                                            SimpleConsumer sc = new SimpleConsumer(consumerHost, consumerPort, 10000, 100000,
+                                                    "GraphiteReporterOffsetChecker");
+    
+                                            lastOffset = getLastOffset(sc, topic, Integer.parseInt(pid),
+                                                    OffsetRequest.LatestTime(), "GraphiteReporterOffsetChecker");
+                                            
+                                            sc.close();
+                                        }
+                                    }
+                                    if (!ownerStr.equals("none")) {
+                                        totalLagPerTopic = totalLagPerTopic + (lastOffset - offset);
+                                    }
+                                    String reportableConsumerGroup = parseTopicFromConsumerGroup(consumerGroup, topic);
+                                    LOG.info( "LAG: kafka.consumer.topic_lag." + topic + "." + reportableConsumerGroup + "." + "partition-" + pid + ".lag" + ": " + totalLagPerTopic);
+                                    sendInt(epoch, "kafka.consumer.topic_lag." + topic + "." + reportableConsumerGroup + "." + "partition-" + pid, "lag", totalLagPerTopic);
                                 }
                             }
                         }
+                    } catch ( Exception e ) {
+                        LOG.error( "oops", e );
                     }
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                LOG.error( "oops", e );
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error( "oops", e );
         }
-
+    }
+    
+    private String parseTopicFromConsumerGroup(String consumerGroup, String topic) {
+        if ( consumerGroup.contains(topic) ) {
+            String reportableConsumerGroup = consumerGroup.replace(topic, "");
+            reportableConsumerGroup = reportableConsumerGroup.substring(0, reportableConsumerGroup.length() - 1 );
+            return reportableConsumerGroup;
+        } else {
+            return consumerGroup;
+        }
     }
 
     protected void printRegularMetrics(final Long epoch) {
@@ -482,6 +521,8 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
                 writer.write(prefix);
             }
             writer.write(sanitizeString(name));
+            writer.write('.');
+            writer.write( dc );
             writer.write('.');
             String[] parts = value.split(" ");
             writer.write(parts[0]);
@@ -634,11 +675,40 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
         kafka.javaapi.OffsetResponse response = consumer.getOffsetsBefore(request);
 
         if (response.hasError()) {
-            System.out
-                    .println("Error fetching data Offset Data the Broker. Reason: " + response.errorCode(topic, partition));
+            LOG.error("Error fetching data Offset Data the Broker. Reason: " + response.errorCode(topic, partition));
             return 0;
         }
         long[] offsets = response.offsets(topic, partition);
         return offsets[0];
+    }
+    
+    private static boolean isLeader() {
+        //hack and a half, but will suffice for some time
+        boolean isLeader = false;
+        try {
+            
+            String hostName = InetAddress.getLocalHost().getHostName().toLowerCase();
+            if ( hostName.contains( "pdx" ) ) {
+                dc = "pdx";
+            } else if ( hostName.contains( "dub" ) ) {
+                dc = "dub";
+            } else if ( hostName.contains( "sin" ) ) {
+                dc = "sin";
+            } else {
+                dc = "ash";
+            }
+            
+            if ( hostName.contains( "." ) ) {
+                String[] parts = hostName.split( "\\." );
+                hostName = parts[0];
+            }
+            if ( hostName.contains( "1" ) ) {
+                isLeader = true;
+            }
+        } catch ( Exception e ) {
+            LOG.warn( "Cannot get a real hostname, defaulting to something stupid" );
+        }
+        IS_LEADER = isLeader;
+        return isLeader;
     }
 }
