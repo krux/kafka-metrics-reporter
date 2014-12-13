@@ -88,6 +88,7 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
             String regex = props.getString("kafka.graphite.metrics.exclude.regex", null);
 
             LOG.info("Initialize GraphiteReporter [" + graphiteHost + "," + graphitePort + "," + graphiteGroupPrefix + "]");
+            LOG.info("Here!");
 
             if (regex != null) {
                 predicate = new RegexMetricPredicate(regex);

@@ -56,7 +56,7 @@ import com.yammer.metrics.stats.Snapshot;
  * href="http://graphite.wikidot.com/faq">Graphite</a> server periodically.
  */
 public class GraphiteReporter extends AbstractPollingReporter implements MetricProcessor<Long> {
-    private static final Logger LOG = LoggerFactory.getLogger(GraphiteReporter.class);
+    private static final Logger LOG;
     protected final String prefix;
     protected final String suffix;
     protected final MetricPredicate predicate;
@@ -72,15 +72,19 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
     static boolean IS_LEADER;
     
     static {
-        
+        LOG = LoggerFactory.getLogger(GraphiteReporter.class);
+        LOG.info( "Attempting to start lag reporter" );
+        System.out.println( "Attempting to start lag reporter" );
         try {
             if ( isLeader() ) {
                 RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 5);
                 String zkConnect = System.getProperty("zookeeper.connect");
-                //LOG.info("zkConnect: " + zkConnect);
+                //System.out.println("zkConnect: " + zkConnect);
                 System.out.println("zkConnect: " + zkConnect);
                 _client = CuratorFrameworkFactory.newClient(zkConnect, retryPolicy);
                 _client.start();
+                
+                System.out.println( "Started Curator client" );
                 
                 Runtime.getRuntime().addShutdownHook( new Thread() {
                     @Override
@@ -94,7 +98,8 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             Thread t = new Thread( new HttpServer( port ) );
             t.start();
         } catch ( Exception e ) {
-            LOG.error( "Cannot start http server or lag reporter", e );
+            e.printStackTrace();
+            //LOG.error( "Cannot start http server or lag reporter", e );
         }
     }
 
@@ -239,7 +244,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             throws IOException {
         this(metricsRegistry, prefix, suffix, MetricPredicate.ALL, new DefaultSocketProvider(host, port), Clock
                 .defaultClock());
-        LOG.info("Instantiated " + this.getClass().getCanonicalName());
+        System.out.println("Instantiated " + this.getClass().getCanonicalName());
     }
 
     /**
@@ -354,7 +359,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             }
 
             writer.flush();
-            // LOG.info( "Sent stats to graphite" );
+            // System.out.println( "Sent stats to graphite" );
         } catch (Exception e) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Error writing to Graphite", e);
@@ -460,21 +465,24 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
                                         totalLagPerTopic = totalLagPerTopic + (lastOffset - offset);
                                     }
                                     String reportableConsumerGroup = parseTopicFromConsumerGroup(consumerGroup, topic);
-                                    LOG.info( "LAG: kafka.consumer.topic_lag." + topic + "." + reportableConsumerGroup + "." + "partition-" + pid + ".lag" + ": " + totalLagPerTopic);
-                                    sendInt(epoch, "kafka.consumer.topic_lag." + topic + "." + reportableConsumerGroup + "." + "partition-" + pid, "lag", totalLagPerTopic);
+                                    //System.out.println( "LAG: kafka.consumer.topic_lag." + topic + "." + reportableConsumerGroup + "." + "partition-" + pid + "." + dc + ".lag" + ": " + totalLagPerTopic);
+                                    sendLagInt(epoch, "kafka.consumer.topic_lag." + dc + "." + topic + "." + reportableConsumerGroup, "partition-" + pid, totalLagPerTopic);
                                 }
                             }
                         }
                     } catch ( Exception e ) {
-                        LOG.error( "oops", e );
+                        e.printStackTrace();
+                        //LOG.error( "oops", e );
                     }
                 }
             } catch (Exception e) {
-                LOG.error( "oops", e );
+                e.printStackTrace();
+                //LOG.error( "oops", e );
             }
 
         } catch (Exception e) {
-            LOG.error( "oops", e );
+            e.printStackTrace();
+            //LOG.error( "oops", e );
         }
     }
     
@@ -506,6 +514,10 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
     protected void sendInt(long timestamp, String name, String valueName, long value) {
         sendToGraphite(timestamp, name, valueName + " " + String.format(locale, "%d", value));
     }
+    
+    protected void sendLagInt(long timestamp, String name, String valueName, long value) {
+        sendLagToGraphite(timestamp, name, valueName + " " + String.format(locale, "%d", value));
+    }
 
     protected void sendFloat(long timestamp, String name, String valueName, double value) {
         sendToGraphite(timestamp, name, valueName + " " + String.format(locale, "%2.2f", value));
@@ -513,6 +525,43 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
 
     protected void sendObjToGraphite(long timestamp, String name, String valueName, Object value) {
         sendToGraphite(timestamp, name, valueName + " " + String.format(locale, "%s", value));
+    }
+    
+    protected void sendLagToGraphite(long timestamp, String name, String value) {
+        try {
+            if (!prefix.isEmpty()) {
+                writer.write(prefix);
+            }
+            writer.write(sanitizeString(name));
+            writer.write('.');
+            String[] parts = value.split(" ");
+            writer.write(parts[0]);
+            writer.write(' ');
+            writer.write(parts[1]);
+            writer.write(' ');
+            writer.write(Long.toString(timestamp));
+            writer.write('\n');
+            writer.flush();
+
+            boolean logDebugToStdOut = Boolean.parseBoolean(System.getProperty("kafka.graphite.metrics.log.debug", "false"));
+            if (logDebugToStdOut) {
+                StringBuilder sb = new StringBuilder();
+                if (!prefix.isEmpty()) {
+                    sb.append(prefix);
+                }
+                sb.append(sanitizeString(name));
+                sb.append('.');
+                sb.append(value);
+                sb.append(' ');
+                sb.append(Long.toString(timestamp));
+                System.out.println(sb.toString());
+            }
+
+        } catch (IOException e) {
+            LOG.error("Error sending to Graphite:", e);
+            e.printStackTrace(System.err);
+            e.printStackTrace(System.out);
+        }
     }
 
     protected void sendToGraphite(long timestamp, String name, String value) {
@@ -688,6 +737,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
         try {
             
             String hostName = InetAddress.getLocalHost().getHostName().toLowerCase();
+            System.out.println( "This machines's hostname: " + hostName );
             if ( hostName.contains( "pdx" ) ) {
                 dc = "pdx";
             } else if ( hostName.contains( "dub" ) ) {
@@ -705,10 +755,13 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             if ( hostName.contains( "1" ) ) {
                 isLeader = true;
             }
+            IS_LEADER = isLeader;
         } catch ( Exception e ) {
             LOG.warn( "Cannot get a real hostname, defaulting to something stupid" );
+            e.printStackTrace();
+            IS_LEADER = false;
         }
-        IS_LEADER = isLeader;
+        System.out.println( "IS_LEADER: " + IS_LEADER );
         return isLeader;
     }
 }
