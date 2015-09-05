@@ -465,7 +465,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
                                         totalLagPerTopic = totalLagPerTopic + (lastOffset - offset);
                                     }
                                     String reportableConsumerGroup = parseTopicFromConsumerGroup(consumerGroup, topic);
-                                    //System.out.println( "LAG: kafka.consumer.topic_lag." + topic + "." + reportableConsumerGroup + "." + "partition-" + pid + "." + dc + ".lag" + ": " + totalLagPerTopic);
+                                    System.out.println( "LAG: kafka.consumer.topic_lag." + dc + "." + topic + "." + reportableConsumerGroup + " partition-" + pid + ": " + totalLagPerTopic);
                                     sendLagInt(epoch, "kafka.consumer.topic_lag." + dc + "." + topic + "." + reportableConsumerGroup, "partition-" + pid, totalLagPerTopic);
                                 }
                             }
