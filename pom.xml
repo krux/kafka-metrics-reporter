@@ -4,7 +4,6 @@
 	<groupId>com.krux</groupId>
 	<artifactId>kafka-metrics-reporter</artifactId>
 	<version>1.1.4</version>
-
 	<build>
 		<plugins>
 			<plugin>
@@ -70,8 +69,5 @@
             <artifactId>netty-all</artifactId>
             <version>4.0.21.Final</version>
         </dependency>
-		<!-- <dependency> <groupId>com.yammer.metrics</groupId> <artifactId>metrics-graphite</artifactId> 
-			<version>2.2.0</version> </dependency> -->
-
 	</dependencies>
 </project>
