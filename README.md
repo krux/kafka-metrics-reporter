@@ -1,7 +1,7 @@
 Krux Kafka Metrics Reporter
 ===============================
 
-The Krux Kafka Reporter is a drop-in jar that utilizes the Kafka server [link]custom reporting interface to automatically produce topic consumption lag stats reporting on a per-consumer/per-partition basis.  It pushes those stats directly to a Graphite server configured in the Kafka configuration file. This reporter produces the same offset results as the [Kafka ConsumerOffsetChecker](http://kafka.apache.org/documentation.html#basic_ops_consumer_lag) command-line tool for *all* consumers currently consuming from the broker cluster.
+The Krux Kafka Reporter is a drop-in jar that utilizes the Kafka server custom reporting interface to automatically produce topic consumption lag stats reporting on a per-consumer/per-partition basis.  It pushes those stats directly to a Graphite server configured in the Kafka configuration file. This reporter produces the same offset results as the [Kafka ConsumerOffsetChecker](http://kafka.apache.org/documentation.html#basic_ops_consumer_lag) command-line tool for *all* consumers currently consuming from the broker cluster.
 
 Use
 ---
