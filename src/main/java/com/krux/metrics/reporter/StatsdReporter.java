@@ -119,7 +119,6 @@ public class StatsdReporter extends AbstractPollingReporter implements MetricPro
         DatagramSocket socket = null;
         try {
 
-            log.info("*******I AM HERE!!");
             socket = this.socketProvider.get();
             outputData.reset();
             prependNewline = false;
@@ -135,7 +134,7 @@ public class StatsdReporter extends AbstractPollingReporter implements MetricPro
             writer.flush();
 
             DatagramPacket packet = this.socketProvider.newPacket(outputData);
-            log.info("Trying to send something!!");
+
             packet.setData(outputData.toByteArray());
             socket.send(packet);
         } catch (Exception e) {

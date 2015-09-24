@@ -15,21 +15,12 @@ import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.concurrent.TimeUnit;
 
-import kafka.api.OffsetRequest;
-import kafka.api.PartitionOffsetRequestInfo;
-import kafka.common.TopicAndPartition;
-import kafka.javaapi.consumer.SimpleConsumer;
-
 import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import scala.Predef;
-import scala.Tuple2;
-import scala.collection.JavaConverters;
 
 import com.fasterxml.jackson.jr.ob.JSON;
 import com.krux.metrics.http.status.HttpServer;
@@ -51,9 +42,17 @@ import com.yammer.metrics.core.VirtualMachineMetrics;
 import com.yammer.metrics.reporting.AbstractPollingReporter;
 import com.yammer.metrics.stats.Snapshot;
 
+import kafka.api.OffsetRequest;
+import kafka.api.PartitionOffsetRequestInfo;
+import kafka.common.TopicAndPartition;
+import kafka.javaapi.consumer.SimpleConsumer;
+import scala.Predef;
+import scala.Tuple2;
+import scala.collection.JavaConverters;
+
 /**
- * A simple reporter which sends out application metrics to a <a
- * href="http://graphite.wikidot.com/faq">Graphite</a> server periodically.
+ * A simple reporter which sends out application metrics to a
+ * <a href="http://graphite.wikidot.com/faq">Graphite</a> server periodically.
  */
 public class GraphiteReporter extends AbstractPollingReporter implements MetricProcessor<Long> {
     private static final Logger LOG;
@@ -66,40 +65,40 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
     protected final VirtualMachineMetrics vm;
     protected Writer writer;
     public boolean printVMMetrics = true;
-    
+
     static private CuratorFramework _client;
     static String dc;
     static boolean IS_LEADER;
-    
+
     static {
         LOG = LoggerFactory.getLogger(GraphiteReporter.class);
-        LOG.info( "Attempting to start lag reporter" );
-        System.out.println( "Attempting to start lag reporter" );
+        LOG.info("Attempting to start lag reporter");
+        System.out.println("Attempting to start lag reporter");
         try {
-            if ( isLeader() ) {
+            if (isLeader()) {
                 RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 5);
                 String zkConnect = System.getProperty("zookeeper.connect");
-                //System.out.println("zkConnect: " + zkConnect);
+                // System.out.println("zkConnect: " + zkConnect);
                 System.out.println("zkConnect: " + zkConnect);
                 _client = CuratorFrameworkFactory.newClient(zkConnect, retryPolicy);
                 _client.start();
-                
-                System.out.println( "Started Curator client" );
-                
-                Runtime.getRuntime().addShutdownHook( new Thread() {
+
+                System.out.println("Started Curator client");
+
+                Runtime.getRuntime().addShutdownHook(new Thread() {
                     @Override
                     public void run() {
                         _client.close();
                     }
                 });
             }
-            
-            Integer port = Integer.parseInt( System.getProperty( "kafka.http.status.port" ) );
-            Thread t = new Thread( new HttpServer( port ) );
+
+            Integer port = Integer.parseInt(System.getProperty("kafka.http.status.port"));
+            Thread t = new Thread(new HttpServer(port));
             t.start();
-        } catch ( Exception e ) {
+        } catch (Exception e) {
             e.printStackTrace();
-            //LOG.error( "Cannot start http server or lag reporter", e );
+            // LOG.error( "Cannot start http server or lag reporter", e );
         }
     }
 
@@ -242,8 +241,8 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
      */
     public GraphiteReporter(MetricsRegistry metricsRegistry, String host, int port, String prefix, String suffix)
             throws IOException {
-        this(metricsRegistry, prefix, suffix, MetricPredicate.ALL, new DefaultSocketProvider(host, port), Clock
-                .defaultClock());
+        this(metricsRegistry, prefix, suffix, MetricPredicate.ALL, new DefaultSocketProvider(host, port),
+                Clock.defaultClock());
         System.out.println("Instantiated " + this.getClass().getCanonicalName());
     }
 
@@ -354,7 +353,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             printRegularMetrics(epoch);
 
             // we only need one machine in a given cluster to report lag metrics
-            if ( IS_LEADER ) {
+            if (IS_LEADER) {
                 printConsumerLagMetrics(epoch);
             }
 
@@ -391,6 +390,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
         }
     }
 
+    @SuppressWarnings("unchecked")
     private void printConsumerLagMetrics(final long epoch) {
 
         try {
@@ -400,96 +400,101 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
 
                 for (String consumerGroup : consumerGroups) {
                     String fullTopicPath = "/consumers/" + consumerGroup + "/offsets";
-                    if ( !fullTopicPath.equals("/consumers/console-consumer-43523/offsets") )
-                    try {
-                        List<String> childTopics = _client.getChildren().forPath(fullTopicPath);
-                        for (String topic : childTopics) {
-                            byte[] data = _client.getData().forPath("/brokers/topics/" + topic);
-                            if (data != null) {
-                                String dataStr = new String(data, "UTF8");
-                                // parse json into map
-                                Map<String, Object> partitionMap = JSON.std.mapFrom(dataStr);
-                                Map<String, Object> realPartitionMap = (Map<String, Object>) partitionMap.get("partitions");
-    
-                                long totalLagPerTopic = 0;
-                                for (String pid : realPartitionMap.keySet()) {
-                                    // get offset
-                                    String offsetPath = "/consumers/" + consumerGroup + "/offsets/" + topic + "/" + pid;
-                                    byte[] offsetBytes = _client.getData().forPath(offsetPath);
-                                    long offset = Long.parseLong(new String(offsetBytes, "UTF8"));
-    
-                                    String ownerPath = "/consumers/" + consumerGroup + "/owners/" + topic + "/" + pid;
-                                    String ownerStr;
-                                    // this call will fail if there are no consumers
-                                    // currently listening, so trap
-                                    try {
-                                        byte[] ownerBytes = _client.getData().forPath(ownerPath);
-                                        ownerStr = new String(ownerBytes, "UTF8");
-                                    } catch (Exception e) {
-                                        ownerStr = "none";
-                                    }
-    
-                                    String leadersAndIsrPath = "/brokers/topics/" + topic + "/partitions/" + pid + "/state";
-                                    byte[] topicPartitionAndIsrBytes = _client.getData().forPath(leadersAndIsrPath);
-                                    String partionAndIsr;
-                                    Integer leader;
-                                    String consumerInfoStr;
-                                    String consumerHost;
-                                    Integer consumerPort;
-                                    long lastOffset = 0;
-                                    if (topicPartitionAndIsrBytes != null) {
-                                        partionAndIsr = new String(topicPartitionAndIsrBytes, "UTF8");
-                                        Map<String, Object> leaderIsrMap = JSON.std.mapFrom(partionAndIsr);
-                                        leader = (Integer) leaderIsrMap.get("leader");
-    
-                                        String consumerPath = "/brokers/ids/" + leader;
-    
-                                        byte[] consumerInfoBytes = _client.getData().forPath(consumerPath);
-    
-                                        if (consumerInfoBytes != null) {
-                                            consumerInfoStr = new String(consumerInfoBytes, "UTF8");
-                                            Map<String, Object> consumerMap = JSON.std.mapFrom(consumerInfoStr);
-                                            consumerHost = (String) consumerMap.get("host");
-                                            consumerPort = (Integer) consumerMap.get("port");
-    
-                                            SimpleConsumer sc = new SimpleConsumer(consumerHost, consumerPort, 10000, 100000,
-                                                    "GraphiteReporterOffsetChecker");
-    
-                                            lastOffset = getLastOffset(sc, topic, Integer.parseInt(pid),
-                                                    OffsetRequest.LatestTime(), "GraphiteReporterOffsetChecker");
-                                            
-                                            sc.close();
+                    if (!fullTopicPath.equals("/consumers/console-consumer-43523/offsets"))
+                        try {
+                            List<String> childTopics = _client.getChildren().forPath(fullTopicPath);
+                            for (String topic : childTopics) {
+                                byte[] data = _client.getData().forPath("/brokers/topics/" + topic);
+                                if (data != null) {
+                                    String dataStr = new String(data, "UTF8");
+                                    // parse json into map
+                                    Map<String, Object> partitionMap = JSON.std.mapFrom(dataStr);
+                                    Map<String, Object> realPartitionMap = (Map<String, Object>) partitionMap
+                                            .get("partitions");
+
+                                    long totalLagPerTopic = 0;
+                                    for (String pid : realPartitionMap.keySet()) {
+                                        // get offset
+                                        String offsetPath = "/consumers/" + consumerGroup + "/offsets/" + topic + "/" + pid;
+                                        byte[] offsetBytes = _client.getData().forPath(offsetPath);
+                                        long offset = Long.parseLong(new String(offsetBytes, "UTF8"));
+
+                                        String ownerPath = "/consumers/" + consumerGroup + "/owners/" + topic + "/" + pid;
+                                        String ownerStr;
+                                        // this call will fail if there are no
+                                        // consumers
+                                        // currently listening, so trap
+                                        try {
+                                            byte[] ownerBytes = _client.getData().forPath(ownerPath);
+                                            ownerStr = new String(ownerBytes, "UTF8");
+                                        } catch (Exception e) {
+                                            ownerStr = "none";
                                         }
+
+                                        String leadersAndIsrPath = "/brokers/topics/" + topic + "/partitions/" + pid
+                                                + "/state";
+                                        byte[] topicPartitionAndIsrBytes = _client.getData().forPath(leadersAndIsrPath);
+                                        String partionAndIsr;
+                                        Integer leader;
+                                        String consumerInfoStr;
+                                        String consumerHost;
+                                        Integer consumerPort;
+                                        long lastOffset = 0;
+                                        if (topicPartitionAndIsrBytes != null) {
+                                            partionAndIsr = new String(topicPartitionAndIsrBytes, "UTF8");
+                                            Map<String, Object> leaderIsrMap = JSON.std.mapFrom(partionAndIsr);
+                                            leader = (Integer) leaderIsrMap.get("leader");
+
+                                            String consumerPath = "/brokers/ids/" + leader;
+
+                                            byte[] consumerInfoBytes = _client.getData().forPath(consumerPath);
+
+                                            if (consumerInfoBytes != null) {
+                                                consumerInfoStr = new String(consumerInfoBytes, "UTF8");
+                                                Map<String, Object> consumerMap = JSON.std.mapFrom(consumerInfoStr);
+                                                consumerHost = (String) consumerMap.get("host");
+                                                consumerPort = (Integer) consumerMap.get("port");
+
+                                                SimpleConsumer sc = new SimpleConsumer(consumerHost, consumerPort, 10000,
+                                                        100000, "GraphiteReporterOffsetChecker");
+
+                                                lastOffset = getLastOffset(sc, topic, Integer.parseInt(pid),
+                                                        OffsetRequest.LatestTime(), "GraphiteReporterOffsetChecker");
+
+                                                sc.close();
+                                            }
+                                        }
+                                        if (!ownerStr.equals("none")) {
+                                            totalLagPerTopic = totalLagPerTopic + (lastOffset - offset);
+                                        }
+                                        String reportableConsumerGroup = parseTopicFromConsumerGroup(consumerGroup, topic);
+                                        System.out.println("LAG: kafka.consumer.topic_lag." + dc + "." + topic + "."
+                                                + reportableConsumerGroup + " partition-" + pid + ": " + totalLagPerTopic);
+                                        sendLagInt(epoch, "kafka.consumer.topic_lag." + dc + "." + topic + "."
+                                                + reportableConsumerGroup, "partition-" + pid, totalLagPerTopic);
                                     }
-                                    if (!ownerStr.equals("none")) {
-                                        totalLagPerTopic = totalLagPerTopic + (lastOffset - offset);
-                                    }
-                                    String reportableConsumerGroup = parseTopicFromConsumerGroup(consumerGroup, topic);
-                                    System.out.println( "LAG: kafka.consumer.topic_lag." + dc + "." + topic + "." + reportableConsumerGroup + " partition-" + pid + ": " + totalLagPerTopic);
-                                    sendLagInt(epoch, "kafka.consumer.topic_lag." + dc + "." + topic + "." + reportableConsumerGroup, "partition-" + pid, totalLagPerTopic);
                                 }
                             }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            // LOG.error( "oops", e );
                         }
-                    } catch ( Exception e ) {
-                        e.printStackTrace();
-                        //LOG.error( "oops", e );
-                    }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
-                //LOG.error( "oops", e );
+                // LOG.error( "oops", e );
             }
 
         } catch (Exception e) {
             e.printStackTrace();
-            //LOG.error( "oops", e );
+            // LOG.error( "oops", e );
         }
     }
-    
+
     private String parseTopicFromConsumerGroup(String consumerGroup, String topic) {
-        if ( consumerGroup.contains(topic) ) {
+        if (consumerGroup.contains(topic)) {
             String reportableConsumerGroup = consumerGroup.replace(topic, "");
-            reportableConsumerGroup = reportableConsumerGroup.substring(0, reportableConsumerGroup.length() - 1 );
+            reportableConsumerGroup = reportableConsumerGroup.substring(0, reportableConsumerGroup.length() - 1);
             return reportableConsumerGroup;
         } else {
             return consumerGroup;
@@ -497,7 +502,8 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
     }
 
     protected void printRegularMetrics(final Long epoch) {
-        for (Entry<String, SortedMap<MetricName, Metric>> entry : getMetricsRegistry().groupedMetrics(predicate).entrySet()) {
+        for (Entry<String, SortedMap<MetricName, Metric>> entry : getMetricsRegistry().groupedMetrics(predicate)
+                .entrySet()) {
             for (Entry<MetricName, Metric> subEntry : entry.getValue().entrySet()) {
                 final Metric metric = subEntry.getValue();
                 if (metric != null) {
@@ -514,7 +520,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
     protected void sendInt(long timestamp, String name, String valueName, long value) {
         sendToGraphite(timestamp, name, valueName + " " + String.format(locale, "%d", value));
     }
-    
+
     protected void sendLagInt(long timestamp, String name, String valueName, long value) {
         sendLagToGraphite(timestamp, name, valueName + " " + String.format(locale, "%d", value));
     }
@@ -526,7 +532,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
     protected void sendObjToGraphite(long timestamp, String name, String valueName, Object value) {
         sendToGraphite(timestamp, name, valueName + " " + String.format(locale, "%s", value));
     }
-    
+
     protected void sendLagToGraphite(long timestamp, String name, String value) {
         try {
             if (!prefix.isEmpty()) {
@@ -571,7 +577,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             }
             writer.write(sanitizeString(name));
             writer.write('.');
-            writer.write( dc );
+            writer.write(dc);
             writer.write('.');
             String[] parts = value.split(" ");
             writer.write(parts[0]);
@@ -715,7 +721,8 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
         return JavaConverters.mapAsScalaMapConverter(m).asScala().toMap(Predef.<Tuple2<A, B>> conforms());
     }
 
-    public static long getLastOffset(SimpleConsumer consumer, String topic, int partition, long whichTime, String clientName) {
+    public static long getLastOffset(SimpleConsumer consumer, String topic, int partition, long whichTime,
+            String clientName) {
         TopicAndPartition topicAndPartition = new TopicAndPartition(topic, partition);
         Map<TopicAndPartition, PartitionOffsetRequestInfo> requestInfo = new HashMap<TopicAndPartition, PartitionOffsetRequestInfo>();
         requestInfo.put(topicAndPartition, new PartitionOffsetRequestInfo(whichTime, 1));
@@ -730,38 +737,51 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
         long[] offsets = response.offsets(topic, partition);
         return offsets[0];
     }
-    
+
     private static boolean isLeader() {
-        //hack and a half, but will suffice for some time
+        //hack-and-a-half, but will suffice for some time
+        //slightly less than a hack-and-a-half, now will take a single machine name and match that if avail
+        
+        String matchHost = System.getProperty("kafka.broker.stats.sender");
+        
         boolean isLeader = false;
         try {
-            
+
             String hostName = InetAddress.getLocalHost().getHostName().toLowerCase();
-            System.out.println( "This machines's hostname: " + hostName );
-            if ( hostName.contains( "pdx" ) ) {
-                dc = "pdx";
-            } else if ( hostName.contains( "dub" ) ) {
-                dc = "dub";
-            } else if ( hostName.contains( "sin" ) ) {
-                dc = "sin";
-            } else {
-                dc = "ash";
-            }
+            System.out.println("This machines's hostname: " + hostName);
             
-            if ( hostName.contains( "." ) ) {
-                String[] parts = hostName.split( "\\." );
-                hostName = parts[0];
+            if ( matchHost.equals("") ) { //works for krux
+                if (hostName.contains("pdx")) {
+                    dc = "pdx";
+                } else if (hostName.contains("dub")) {
+                    dc = "dub";
+                } else if (hostName.contains("sin")) {
+                    dc = "sin";
+                } else {
+                    dc = "ash";
+                }
+    
+                if (hostName.contains(".")) {
+                    String[] parts = hostName.split("\\.");
+                    hostName = parts[0];
+                }
+                if (hostName.contains("1")) {
+                    isLeader = true;
+                }
+            } else { //works for everyone
+                if (matchHost.equalsIgnoreCase(hostName)) {
+                    isLeader = true;
+                    dc = "datacenter"; //should expose as config property
+                }
             }
-            if ( hostName.contains( "1" ) ) {
-                isLeader = true;
-            }
+        
             IS_LEADER = isLeader;
-        } catch ( Exception e ) {
-            LOG.warn( "Cannot get a real hostname, defaulting to something stupid" );
+        } catch (Exception e) {
+            LOG.warn("Cannot get a real hostname, defaulting to something stupid");
             e.printStackTrace();
             IS_LEADER = false;
         }
-        System.out.println( "IS_LEADER: " + IS_LEADER );
+        System.out.println("IS_LEADER: " + IS_LEADER);
         return isLeader;
     }
 }

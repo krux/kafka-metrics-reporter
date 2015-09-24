@@ -1,4 +1,4 @@
-krux-kafka custom reporting jar
+Krux Kafka Metrics Reporter
 ===============================
 
 Used by https://github.com/krux/krux-kafka

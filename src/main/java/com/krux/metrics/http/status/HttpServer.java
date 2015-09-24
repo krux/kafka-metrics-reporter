@@ -1,14 +1,14 @@
 package com.krux.metrics.http.status;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * An HTTP server that sends back the content of the received HTTP request in a
@@ -21,27 +21,26 @@ public class HttpServer implements Runnable {
     private int _port;
     EventLoopGroup _bossGroup = null;
     EventLoopGroup _workerGroup = null;
-    
-    
-    public HttpServer( int port ) {
+
+    public HttpServer(int port) {
         _port = port;
-        
-//        Runtime.getRuntime().addShutdownHook( new Thread() {
-//            @Override
-//            public void run() {
-//                System.out.println("Shutting down http status listener" );
-//                _bossGroup.shutdownNow();
-//                _workerGroup.shutdownNow();
-//            }
-//        });
+
+        // Runtime.getRuntime().addShutdownHook( new Thread() {
+        // @Override
+        // public void run() {
+        // System.out.println("Shutting down http status listener" );
+        // _bossGroup.shutdownNow();
+        // _workerGroup.shutdownNow();
+        // }
+        // });
     }
 
     @Override
     public void run() {
 
         try {
-            
-            System.out.println( "Starting HTTP Status listener on port " + _port );
+
+            System.out.println("Starting HTTP Status listener on port " + _port);
 
             // Configure the server.
             _bossGroup = new NioEventLoopGroup(1);
