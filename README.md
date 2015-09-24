@@ -1,20 +1,39 @@
 Krux Kafka Metrics Reporter
 ===============================
 
-Used by https://github.com/krux/krux-kafka
+A custom KafkaMetricsReporter intended to be dropped into a Kafka broker cluster that will send all consumer offset metrics to a configured Graphite server. This reporter produces the same results as the [Kafka ConsumerOffsetChecker](http://kafka.apache.org/documentation.html#basic_ops_consumer_lag) command-line tool for *all* consumers currently consuming from the broker cluster.
 
-This jar is copied to that projects' libs/ dir by its package.sh and relies on the following config in the kafka server config file:
+Use
+---
+Make this jar available to a Kafka broker by placing it on the classpath, and add the following lines to your Kafka configuration...
 
-```
-# additional logger info
-kafka.metrics.reporters=com.krux.metrics.reporter.KafkaGraphiteMetricsReporter
-kafka.graphite.metrics.reporter.enabled=true
-kafka.graphite.metrics.host=localhost
-kafka.graphite.metrics.port=2003
+    # custom metrics logger config
+    kafka.metrics.reporters=com.krux.metrics.reporter.KafkaGraphiteMetricsReporter
+    kafka.graphite.metrics.reporter.enabled=true
+    kafka.graphite.metrics.host=localhost
+    kafka.graphite.metrics.port=2003
+    # optional - in a cluster, only this machine will send stats
+    kafka.broker.stats.sender=my.host.name.com
 
-#full tree prefix
-kafka.graphite.metrics.env=prod
+    #full tree prefix
+    kafka.graphite.metrics.env=prod
 
-#if true, log all reported metrics to stdout. Default is false.
-kafka.graphite.metrics.log.debug=true
-```
+    #if true, log all reported metrics to stdout. Default is false. (useful for testing)
+    kafka.graphite.metrics.log.debug=true
+
+
+Metrics will fall under a prefix of "env".kafka.consumer.topic_lag prefix, where "env" is specified by the `kafka.graphite.metrics.env` in the config settings above.
+
+To prevent all brokers in your cluster from sending the same, duplicated information to Graphite, you should set the `kafka.broker.stats.sender` property to the fully qualified domain name of one of the machines in the broker cluster. Only that machine will forward consumer lag stats.  This approach allows a single, common configuration across all hosts in your cluster.
+
+Releases
+--------
+All releases are available as pre-built jars [here](releases). You could also build the source from scratch using Maven.
+
+    mvn clean package
+    
+will produce a jar with all dependencies at `target/kafka-metrics-reporter-1.1.4.jar`.
+
+
+
+ 
