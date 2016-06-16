@@ -771,8 +771,8 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             } else { //works for everyone
                 if (matchHost.equalsIgnoreCase(hostName)) {
                     isLeader = true;
-                    dc = "datacenter"; //should expose as config property
                 }
+                dc = "datacenter"; //should expose as config property
             }
         
             IS_LEADER = isLeader;
