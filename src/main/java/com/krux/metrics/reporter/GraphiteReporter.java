@@ -412,7 +412,6 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
                                     Map<String, Object> realPartitionMap = (Map<String, Object>) partitionMap
                                             .get("partitions");
 
-                                    long totalLagPerTopic = 0;
                                     for (String pid : realPartitionMap.keySet()) {
                                         // get offset
                                         String offsetPath = "/consumers/" + consumerGroup + "/offsets/" + topic + "/" + pid;
@@ -464,14 +463,12 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
                                                 sc.close();
                                             }
                                         }
-                                        if (!ownerStr.equals("none")) {
-                                            totalLagPerTopic = totalLagPerTopic + (lastOffset - offset);
-                                        }
+                                        long totalLagPerPartition = (!ownerStr.equals("none")) ? (lastOffset - offset) : 0;
                                         String reportableConsumerGroup = parseTopicFromConsumerGroup(consumerGroup, topic);
                                         System.out.println("LAG: kafka.consumer.topic_lag." + dc + "." + topic + "."
-                                                + reportableConsumerGroup + " partition-" + pid + ": " + totalLagPerTopic);
+                                                + reportableConsumerGroup + " partition-" + pid + ": " + totalLagPerPartition);
                                         sendLagInt(epoch, "kafka.consumer.topic_lag." + dc + "." + topic + "."
-                                                + reportableConsumerGroup, "partition-" + pid, totalLagPerTopic);
+                                                + reportableConsumerGroup, "partition-" + pid, totalLagPerPartition);
                                     }
                                 }
                             }
