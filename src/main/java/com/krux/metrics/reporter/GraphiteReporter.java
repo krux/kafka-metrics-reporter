@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.lang.Thread.State;
-import java.net.InetAddress;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.List;
@@ -67,14 +66,16 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
     public boolean printVMMetrics = true;
 
     static private CuratorFramework _client;
-    static String dc;
-    static boolean IS_LEADER;
+    private static String dc;
+    private static boolean IS_LEADER;
 
     static {
         LOG = LoggerFactory.getLogger(GraphiteReporter.class);
         LOG.info("Attempting to start lag reporter");
         System.out.println("Attempting to start lag reporter");
         try {
+            dc = getDataCenter();
+
             if (isLeader()) {
                 RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 5);
                 String zkConnect = System.getProperty("zookeeper.connect");
@@ -735,50 +736,16 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
         return offsets[0];
     }
 
-    private static boolean isLeader() {
-        //hack-and-a-half, but will suffice for some time
-        //slightly less than a hack-and-a-half, now will take a single machine name and match that if avail
-        
-        String matchHost = System.getProperty("kafka.broker.stats.sender");
-        
-        boolean isLeader = false;
-        try {
-
-            String hostName = InetAddress.getLocalHost().getHostName().toLowerCase();
-            System.out.println("This machines's hostname: " + hostName);
-            
-            if ( matchHost.equals("") ) { //works for krux
-                if (hostName.contains("pdx")) {
-                    dc = "pdx";
-                } else if (hostName.contains("dub")) {
-                    dc = "dub";
-                } else if (hostName.contains("sin")) {
-                    dc = "sin";
-                } else {
-                    dc = "ash";
-                }
-    
-                if (hostName.contains(".")) {
-                    String[] parts = hostName.split("\\.");
-                    hostName = parts[0];
-                }
-                if (hostName.contains("1")) {
-                    isLeader = true;
-                }
-            } else { //works for everyone
-                if (matchHost.equalsIgnoreCase(hostName)) {
-                    isLeader = true;
-                }
-                dc = "datacenter"; //should expose as config property
-            }
-        
-            IS_LEADER = isLeader;
-        } catch (Exception e) {
-            LOG.warn("Cannot get a real hostname, defaulting to something stupid");
-            e.printStackTrace();
-            IS_LEADER = false;
+    protected static String getDataCenter() {
+        dc = System.getProperty("kafka.broker.datacenter");
+        if (dc == null) {
+            dc = "datacenter";
         }
-        System.out.println("IS_LEADER: " + IS_LEADER);
-        return isLeader;
+        return dc;
+    }
+
+    protected static boolean isLeader() {
+        // when this property is set on the host, the host will be the leader for sending stats
+        return Boolean.valueOf(System.getProperty("kafka.broker.stats.sender"));
     }
 }
