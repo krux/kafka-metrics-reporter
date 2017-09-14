@@ -8,7 +8,7 @@
 		<repository>
 			<id>kruxmvn</id>
 			<name>kruxmvn-releases</name>
-			<url>https://kruxmvn.jfrog.io/kruxmvn/libs-releases</url>
+			<url>https://kruxmvn.jfrog.io/kruxmvn/libs-releases-local</url>
 		</repository>
 	</distributionManagement>
 	<build>
