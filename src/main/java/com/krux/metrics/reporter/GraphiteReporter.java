@@ -66,15 +66,15 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
     public boolean printVMMetrics = true;
 
     static private CuratorFramework _client;
-    private static String dc;
-    private static boolean IS_LEADER;
+    private static String _dc;
+    private static boolean _IS_LEADER;
 
     static {
         LOG = LoggerFactory.getLogger(GraphiteReporter.class);
         LOG.info("Attempting to start lag reporter");
         System.out.println("Attempting to start lag reporter");
         try {
-            dc = getDataCenter();
+            _dc = getDataCenter();
 
             if (isLeader()) {
                 RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 5);
@@ -332,6 +332,8 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
         }
 
         this.predicate = predicate;
+        this._dc = getDataCenter();
+        this._IS_LEADER = isLeader();
     }
 
     @Override
@@ -354,7 +356,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             printRegularMetrics(epoch);
 
             // we only need one machine in a given cluster to report lag metrics
-            if (IS_LEADER) {
+            if (_IS_LEADER) {
                 printConsumerLagMetrics(epoch);
             }
 
@@ -466,9 +468,9 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
                                         }
                                         long totalLagPerPartition = (!ownerStr.equals("none")) ? (lastOffset - offset) : 0;
                                         String reportableConsumerGroup = parseTopicFromConsumerGroup(consumerGroup, topic);
-                                        System.out.println("LAG: kafka.consumer.topic_lag." + dc + "." + topic + "."
+                                        System.out.println("LAG: kafka.consumer.topic_lag." + _dc + "." + topic + "."
                                                 + reportableConsumerGroup + " partition-" + pid + ": " + totalLagPerPartition);
-                                        sendLagInt(epoch, "kafka.consumer.topic_lag." + dc + "." + topic + "."
+                                        sendLagInt(epoch, "kafka.consumer.topic_lag." + _dc + "." + topic + "."
                                                 + reportableConsumerGroup, "partition-" + pid, totalLagPerPartition);
                                     }
                                 }
@@ -575,7 +577,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             }
             writer.write(sanitizeString(name));
             writer.write('.');
-            writer.write(dc);
+            writer.write(_dc);
             writer.write('.');
             String[] parts = value.split(" ");
             writer.write(parts[0]);
@@ -737,7 +739,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
     }
 
     protected static String getDataCenter() {
-        dc = System.getProperty("kafka.broker.datacenter");
+        String dc = System.getProperty("kafka.broker.datacenter");
         if (dc == null) {
             dc = "datacenter";
         }
