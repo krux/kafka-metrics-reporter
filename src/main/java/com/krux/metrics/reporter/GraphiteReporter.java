@@ -56,9 +56,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
         LOG.info("Attempting to start lag reporter");
         System.out.println("Attempting to start lag reporter");
         try {
-            _dc = getDataCenter();
-
-            if (isLeader()) {
+            if (_IS_LEADER) {
                 RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 5);
                 String zkConnect = System.getProperty("zookeeper.connect");
                 // System.out.println("zkConnect: " + zkConnect);
@@ -316,6 +314,8 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
         this.predicate = predicate;
         this._dc = getDataCenter();
         this._IS_LEADER = isLeader();
+        LOG.info("dc: " + _dc);
+        LOG.info("is_leader: " + _IS_LEADER);
     }
 
     @Override

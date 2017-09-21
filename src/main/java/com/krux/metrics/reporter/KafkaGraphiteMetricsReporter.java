@@ -77,7 +77,8 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
             System.setProperty("kafka.http.status.port", props.getString("kafka.http.status.port", "6091"));
             System.setProperty("kafka.http.status.port", props.getString("kafka.http.status.port", "6091"));
             System.setProperty("kafka.broker.datacenter", props.getString("kafka.broker.datacenter", "default"));
-            
+            System.setProperty("kafka.broker.datacenter", props.getString("kafka.broker.stats.sender", "false"));
+
             try {
                 graphiteSuffix = InetAddress.getLocalHost().getHostName().toLowerCase();
                 if (graphiteSuffix.contains(".")) {
