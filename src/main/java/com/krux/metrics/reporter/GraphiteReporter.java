@@ -1,53 +1,35 @@
 package com.krux.metrics.reporter;
 
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
-import java.lang.Thread.State;
-import java.net.Socket;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.SortedMap;
-import java.util.concurrent.TimeUnit;
-
+import com.fasterxml.jackson.jr.ob.JSON;
+import com.krux.metrics.http.status.HttpServer;
+import com.yammer.metrics.Metrics;
+import com.yammer.metrics.core.*;
+import com.yammer.metrics.core.Timer;
+import com.yammer.metrics.reporting.AbstractPollingReporter;
+import com.yammer.metrics.stats.Snapshot;
+import kafka.api.OffsetRequest;
+import kafka.api.PartitionOffsetRequestInfo;
+import kafka.common.TopicAndPartition;
+import kafka.javaapi.consumer.SimpleConsumer;
 import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.fasterxml.jackson.jr.ob.JSON;
-import com.krux.metrics.http.status.HttpServer;
-import com.yammer.metrics.Metrics;
-import com.yammer.metrics.core.Clock;
-import com.yammer.metrics.core.Counter;
-import com.yammer.metrics.core.Gauge;
-import com.yammer.metrics.core.Histogram;
-import com.yammer.metrics.core.Metered;
-import com.yammer.metrics.core.Metric;
-import com.yammer.metrics.core.MetricName;
-import com.yammer.metrics.core.MetricPredicate;
-import com.yammer.metrics.core.MetricProcessor;
-import com.yammer.metrics.core.MetricsRegistry;
-import com.yammer.metrics.core.Sampling;
-import com.yammer.metrics.core.Summarizable;
-import com.yammer.metrics.core.Timer;
-import com.yammer.metrics.core.VirtualMachineMetrics;
-import com.yammer.metrics.reporting.AbstractPollingReporter;
-import com.yammer.metrics.stats.Snapshot;
-
-import kafka.api.OffsetRequest;
-import kafka.api.PartitionOffsetRequestInfo;
-import kafka.common.TopicAndPartition;
-import kafka.javaapi.consumer.SimpleConsumer;
 import scala.Predef;
 import scala.Tuple2;
 import scala.collection.JavaConverters;
+
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.lang.Thread.State;
+import java.net.Socket;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A simple reporter which sends out application metrics to a
@@ -66,17 +48,15 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
     public boolean printVMMetrics = true;
 
     static private CuratorFramework _client;
-    private static String dc;
-    private static boolean IS_LEADER;
+    private static String _dc;
+    private static boolean _IS_LEADER;
 
     static {
         LOG = LoggerFactory.getLogger(GraphiteReporter.class);
         LOG.info("Attempting to start lag reporter");
         System.out.println("Attempting to start lag reporter");
         try {
-            dc = getDataCenter();
-
-            if (isLeader()) {
+            if (_IS_LEADER) {
                 RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 5);
                 String zkConnect = System.getProperty("zookeeper.connect");
                 // System.out.println("zkConnect: " + zkConnect);
@@ -332,6 +312,10 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
         }
 
         this.predicate = predicate;
+        this._dc = getDataCenter();
+        this._IS_LEADER = isLeader();
+        LOG.info("dc: " + _dc);
+        LOG.info("is_leader: " + _IS_LEADER);
     }
 
     @Override
@@ -354,7 +338,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             printRegularMetrics(epoch);
 
             // we only need one machine in a given cluster to report lag metrics
-            if (IS_LEADER) {
+            if (_IS_LEADER) {
                 printConsumerLagMetrics(epoch);
             }
 
@@ -466,9 +450,9 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
                                         }
                                         long totalLagPerPartition = (!ownerStr.equals("none")) ? (lastOffset - offset) : 0;
                                         String reportableConsumerGroup = parseTopicFromConsumerGroup(consumerGroup, topic);
-                                        System.out.println("LAG: kafka.consumer.topic_lag." + dc + "." + topic + "."
+                                        System.out.println("LAG: kafka.consumer.topic_lag." + _dc + "." + topic + "."
                                                 + reportableConsumerGroup + " partition-" + pid + ": " + totalLagPerPartition);
-                                        sendLagInt(epoch, "kafka.consumer.topic_lag." + dc + "." + topic + "."
+                                        sendLagInt(epoch, "kafka.consumer.topic_lag." + _dc + "." + topic + "."
                                                 + reportableConsumerGroup, "partition-" + pid, totalLagPerPartition);
                                     }
                                 }
@@ -575,7 +559,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
             }
             writer.write(sanitizeString(name));
             writer.write('.');
-            writer.write(dc);
+            writer.write(_dc);
             writer.write('.');
             String[] parts = value.split(" ");
             writer.write(parts[0]);
@@ -737,9 +721,9 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
     }
 
     protected static String getDataCenter() {
-        dc = System.getProperty("kafka.broker.datacenter");
+        String dc = System.getProperty("kafka.broker.datacenter");
         if (dc == null) {
-            dc = "datacenter";
+            dc = "default";
         }
         return dc;
     }
