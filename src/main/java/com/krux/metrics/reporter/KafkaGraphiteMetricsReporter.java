@@ -1,18 +1,16 @@
 package com.krux.metrics.reporter;
 
+import com.yammer.metrics.Metrics;
+import com.yammer.metrics.core.MetricPredicate;
+import kafka.metrics.KafkaMetricsConfig;
+import kafka.metrics.KafkaMetricsReporter;
+import kafka.utils.VerifiableProperties;
+import org.apache.log4j.Logger;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.concurrent.TimeUnit;
-
-import org.apache.log4j.Logger;
-
-import com.yammer.metrics.Metrics;
-import com.yammer.metrics.core.MetricPredicate;
-
-import kafka.metrics.KafkaMetricsConfig;
-import kafka.metrics.KafkaMetricsReporter;
-import kafka.utils.VerifiableProperties;
 
 public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, KafkaGraphiteMetricsReporterMBean {
 
@@ -78,6 +76,7 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
             System.setProperty("zookeeper.connect", props.getString("zookeeper.connect", "localhost:2181"));
             System.setProperty("kafka.http.status.port", props.getString("kafka.http.status.port", "6091"));
             System.setProperty("kafka.http.status.port", props.getString("kafka.http.status.port", "6091"));
+            System.setProperty("kafka.broker.datacenter", props.getString("kafka.broker.datacenter", "default"));
             
             try {
                 graphiteSuffix = InetAddress.getLocalHost().getHostName().toLowerCase();

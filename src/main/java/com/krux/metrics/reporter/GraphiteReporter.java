@@ -1,53 +1,35 @@
 package com.krux.metrics.reporter;
 
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
-import java.lang.Thread.State;
-import java.net.Socket;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.SortedMap;
-import java.util.concurrent.TimeUnit;
-
+import com.fasterxml.jackson.jr.ob.JSON;
+import com.krux.metrics.http.status.HttpServer;
+import com.yammer.metrics.Metrics;
+import com.yammer.metrics.core.*;
+import com.yammer.metrics.core.Timer;
+import com.yammer.metrics.reporting.AbstractPollingReporter;
+import com.yammer.metrics.stats.Snapshot;
+import kafka.api.OffsetRequest;
+import kafka.api.PartitionOffsetRequestInfo;
+import kafka.common.TopicAndPartition;
+import kafka.javaapi.consumer.SimpleConsumer;
 import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.fasterxml.jackson.jr.ob.JSON;
-import com.krux.metrics.http.status.HttpServer;
-import com.yammer.metrics.Metrics;
-import com.yammer.metrics.core.Clock;
-import com.yammer.metrics.core.Counter;
-import com.yammer.metrics.core.Gauge;
-import com.yammer.metrics.core.Histogram;
-import com.yammer.metrics.core.Metered;
-import com.yammer.metrics.core.Metric;
-import com.yammer.metrics.core.MetricName;
-import com.yammer.metrics.core.MetricPredicate;
-import com.yammer.metrics.core.MetricProcessor;
-import com.yammer.metrics.core.MetricsRegistry;
-import com.yammer.metrics.core.Sampling;
-import com.yammer.metrics.core.Summarizable;
-import com.yammer.metrics.core.Timer;
-import com.yammer.metrics.core.VirtualMachineMetrics;
-import com.yammer.metrics.reporting.AbstractPollingReporter;
-import com.yammer.metrics.stats.Snapshot;
-
-import kafka.api.OffsetRequest;
-import kafka.api.PartitionOffsetRequestInfo;
-import kafka.common.TopicAndPartition;
-import kafka.javaapi.consumer.SimpleConsumer;
 import scala.Predef;
 import scala.Tuple2;
 import scala.collection.JavaConverters;
+
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.lang.Thread.State;
+import java.net.Socket;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A simple reporter which sends out application metrics to a
@@ -741,7 +723,7 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
     protected static String getDataCenter() {
         String dc = System.getProperty("kafka.broker.datacenter");
         if (dc == null) {
-            dc = "datacenter";
+            dc = "default";
         }
         return dc;
     }
