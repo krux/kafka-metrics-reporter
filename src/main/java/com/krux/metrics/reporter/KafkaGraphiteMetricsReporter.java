@@ -68,8 +68,6 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
             graphiteHost = props.getString("kafka.graphite.metrics.host", GRAPHITE_DEFAULT_HOST);
             graphitePort = props.getInt("kafka.graphite.metrics.port", GRAPHITE_DEFAULT_PORT);
             graphiteGroupPrefix = props.getString("kafka.graphite.metrics.env", GRAPHITE_DEFAULT_PREFIX);
-            hostMatch = props.getString("kafka.broker.stats.sender", "");
-            System.setProperty("kafka.broker.stats.sender", hostMatch);
             
             System.setProperty("kafka.graphite.metrics.log.debug",
                     props.getString("kafka.graphite.metrics.log.debug", "false"));
@@ -77,7 +75,8 @@ public class KafkaGraphiteMetricsReporter implements KafkaMetricsReporter, Kafka
             System.setProperty("kafka.http.status.port", props.getString("kafka.http.status.port", "6091"));
             System.setProperty("kafka.http.status.port", props.getString("kafka.http.status.port", "6091"));
             System.setProperty("kafka.broker.datacenter", props.getString("kafka.broker.datacenter", "default"));
-            System.setProperty("kafka.broker.datacenter", props.getString("kafka.broker.stats.sender", "false"));
+            System.setProperty("kafka.broker.stats.sender", props.getString("kafka.broker.stats.sender", "false"));
+            hostMatch = props.getString("kafka.broker.stats.sender", "");
 
             try {
                 graphiteSuffix = InetAddress.getLocalHost().getHostName().toLowerCase();

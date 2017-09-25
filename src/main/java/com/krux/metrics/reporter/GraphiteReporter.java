@@ -56,10 +56,12 @@ public class GraphiteReporter extends AbstractPollingReporter implements MetricP
         LOG.info("Attempting to start lag reporter");
         System.out.println("Attempting to start lag reporter");
         try {
+            _IS_LEADER = isLeader();
+            _dc = getDataCenter();
+
             if (_IS_LEADER) {
                 RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 5);
                 String zkConnect = System.getProperty("zookeeper.connect");
-                // System.out.println("zkConnect: " + zkConnect);
                 System.out.println("zkConnect: " + zkConnect);
                 _client = CuratorFrameworkFactory.newClient(zkConnect, retryPolicy);
                 _client.start();
